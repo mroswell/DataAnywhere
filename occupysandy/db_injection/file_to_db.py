@@ -90,8 +90,6 @@ class WeatherData(object):
         print "done"
 
 if __name__ == "__main__":
-   import pdb
-   pdb.set_trace()
    w = WeatherData()
    #w.list_files()
    #w.inject_temp()
