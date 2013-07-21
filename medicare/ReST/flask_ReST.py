@@ -21,7 +21,7 @@ def request_wants_json():
 def sanity_test():
     # If no params, send the first 10 records (exploratory)
 
-    results = [x for x in config.weather_collection.find({}).limit(10)]
+    results = [x for x in config.medicare_npi_ll_collection.find({}).limit(10)]
 
     outbound = []
     for r in results:
@@ -32,7 +32,7 @@ def sanity_test():
 
     for r in results:
         outbound.extend(
-            [[r['_id'],r['year'],r['location'],r['precips_mm'][n],r['temps_f'][n]] for n in xrange(len(r['precips_mm']))]
+            [r['_id'],r['year'],r['location'],r['confidence'],r['NPI']]
             )
 
     if request_wants_json():
@@ -40,28 +40,23 @@ def sanity_test():
     return jsonify(items=outbound)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-@app.route('/year/<int:year>/',defaults={'month':None},methods=['GET'])
-@app.route('/year/<int:year>/month/<int:month>/',methods=['GET'])
-def by_ym(year,month):
+@app.route('/drg_def_id/<int:drg_def_id>/',defaults={'zipcode':None},methods=['GET'])
+@app.route('/drg_def_id/<int:drg_def_id>/zipcode/<string:zipcode>/',methods=['GET'])
+def by_dzgeo(drg_def_id,zipcode):
     request_dict = {}
-    if year:
-        request_dict['year'] = year
-    results = [x for x in config.weather_collection.find(request_dict).limit(50000)]
+
+    request_dict['drg_def_id'] = drg_def_id
+    if zipcode:
+        # USPS zipcode collection
+        longlat = config.zipcode_collection.find_one({'postal_code':zipcode})
+        request_dict['location'] = {'$near': [longlat['longitude'],longlat['latitude']]}
+
+    results = [x for x in config.medicare_provider_charge_collection.find(request_dict).limit(50000)]
 
     for r in results:
         for x,y in r.items():
             if type(y) in (datetime.datetime,ObjectId):
                r[x] = str(y)
-
-    if month in xrange(13):
-        outbound = []
-        for r in results:
-            outbound.append(
-                {'_id':r['_id'],'year':r['year'],'location':r['location'],
-                 'precip_mm':r['precips_mm'][month],
-                 'temp_f':r['temps_f'][month],'temp_c':r['temps_c'][month]}
-                )
-        results = outbound
 
     if request_wants_json():
         return jsonify(items=results)
@@ -70,69 +65,7 @@ def by_ym(year,month):
     #return render_template('nonexistent.html', items=items)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-@app.route('/year/<int:year>/limit/<int:mlimit>/offset/<int:offset>/longitude/<float:longitude>/latitude/<float:latitude>/',methods=['GET'])
-@app.route('/year/<int:year>/limit/<int:mlimit>/offset/<int:offset>/longitude/-<float:longitude>/latitude/<float:latitude>/',methods=['GET'])
-@app.route('/year/<int:year>/limit/<int:mlimit>/offset/<int:offset>/longitude/<float:longitude>/latitude/-<float:latitude>/',methods=['GET'])
-@app.route('/year/<int:year>/limit/<int:mlimit>/offset/<int:offset>/longitude/-<float:longitude>/latitude/-<float:latitude>/',methods=['GET'])
-def near_loc_year(longitude,latitude,year,mlimit,offset):
-    request_dict = {}
-    request_dict['year'] = year
-    request_dict['location'] = {'$near':[longitude,latitude]}
-    results = [x for x in config.weather_collection.find(request_dict).limit(mlimit).skip(offset)]
-
-    for r in results:
-        for x,y in r.items():
-            if type(y) in (datetime.datetime,ObjectId):
-               r[x] = str(y)
-
-    if request_wants_json():
-        return jsonify(items=results)
-
-    return jsonify(items=results)
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-@app.route('/temp/<string:c_or_f>/<float:temperature_f>/',methods=['GET'])
-@app.route('/temp/<string:c_or_f>/<int:temperature_f>/',methods=['GET'])
-def by_temp(c_or_f,temperature_f):
-    request_dict = {}
-    #request['temps_%s' % c_or_f] = {'$gt':math.ceil(temperature_f),'$lte':math.floor(temperature_f)}
-    request_dict['temps_%s' % c_or_f] = {'$gt':math.ceil(temperature_f) + 0.5,'$lte':math.floor(temperature_f) - 0.5}
-
-    results = [x for x in config.weather_collection.find(request_dict).limit(10000)]
-
-    for r in results:
-        for x,y in r.items():
-            if type(y) in (datetime.datetime,ObjectId):
-               r[x] = str(y)
-
-    outbound = []
-    for r in results:
-        for month in xrange(12):
-            if math.floor(temperature_f) - 0.5 < r['temps_f'][month] < math.ceil(temperature_f) + 0.5:
-                outbound.append(
-                    {'_id':r['_id'],'year':r['year'],'location':r['location'],
-                     'precip_mm month %d' % month:r['precips_mm'][month],
-                     'temp_f month %d' % month:r['temps_f'][month],'temp_c month %d' % month:r['temps_c'][month]
-                        }
-                    )
-    results = outbound
-
-    if request_wants_json():
-        return jsonify(items=results)
-
-    return jsonify(items=results)
-    #return render_template('nonexistent.html', items=items)
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-@app.route('/temp/<string:c_or_f>/-<float:temperature_f>/',methods=['GET'])
-@app.route('/temp/<string:c_or_f>/-<int:temperature_f>/',methods=['GET'])
-def by_neg_temp(c_or_f,temperature_f):
-    temperature_f = -temperature_f
-    return by_temp(c_or_f,temperature_f)
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 if __name__ == '__main__':
-    #app.run(config.query_f_server,config.query_f_port2)
+    #app.run(config.query_f_server,config.query_f_port_medicare)
     app.run('192.81.210.33',80)
 
