@@ -13,5 +13,6 @@ sandy_collection = sandy_db['surveys']
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Flask config
 query_f_server='127.0.0.1'
-query_f_port=5000
-
+query_f_port_weather=5000
+query_f_port_sandy=5001
+query_f_port_medicare=5002
