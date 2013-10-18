@@ -1,4 +1,4 @@
 DataAnywhere
 ============
 
-The Data Aywhere project
+The Data Anywhere project
